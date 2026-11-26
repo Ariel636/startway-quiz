@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Аттестация по атласу · Startway</title>
+<style>
+  :root { --bg:#F5F3EE; --ink:#1D2B3A; --grey:#5B6672; --line:#DCD6CB; --card:#fff; --acc:#1F6F5C; --accSoft:#E2F0EA; --warn:#B7791F; --warnSoft:#F7EBD6; --err:#B42318; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 18px 60px; }
+  .kicker { color:var(--acc); font-weight:700; letter-spacing:.14em; font-size:12px; text-transform:uppercase; }
+  h1 { font-size: 28px; margin: 6px 0 8px; }
+  p.muted { color: var(--grey); margin: 0 0 18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; }
+  label { display:block; font-weight:600; margin:14px 0 6px; }
+  input { width:100%; padding:12px 14px; font-size:16px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); }
+  input:focus, button:focus-visible, .opt:focus-visible { outline: 3px solid var(--accSoft); border-color: var(--acc); }
+  button { font: inherit; cursor: pointer; border-radius: 10px; padding: 12px 18px; border: 1px solid var(--acc); }
+  .primary { background: var(--acc); color: #fff; font-weight: 600; }
+  .primary:disabled { opacity: .5; cursor: default; }
+  .ghost { background: transparent; color: var(--acc); }
+  .err { color: var(--err); margin-top: 12px; min-height: 1.2em; }
+  .bar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .chip { background:var(--warnSoft); color:var(--warn); font-weight:700; font-size:13px; padding:4px 12px; border-radius:20px; }
+  .timer { font-variant-numeric: tabular-nums; font-weight:700; }
+  .timer.low { color: var(--err); }
+  .progress { height:6px; background:var(--line); border-radius:4px; overflow:hidden; margin-bottom:18px; }
+  .progress > div { height:100%; background:var(--acc); width:0; transition: width .2s; }
+  .q { font-size: 20px; font-weight: 600; margin: 4px 0 16px; }
+  .opt { display:block; width:100%; text-align:left; background:#fff; color:var(--ink); border:1px solid var(--line); margin:10px 0; padding:14px 16px; border-radius:12px; }
+  .opt:hover { border-color: var(--acc); }
+  .opt.sel { border-color: var(--acc); background: var(--accSoft); font-weight: 600; }
+  .nav { display:flex; justify-content:space-between; gap:12px; margin-top:18px; }
+  .dots { display:flex; flex-wrap:wrap; gap:6px; margin-top:20px; }
+  .dot { width:30px; height:30px; border-radius:8px; border:1px solid var(--line); background:#fff; font-size:12px; padding:0; color:var(--grey); }
+  .dot.done { background: var(--accSoft); border-color: var(--acc); color: var(--acc); }
+  .dot.cur { outline: 2px solid var(--ink); }
+  .note { background:var(--warnSoft); border-radius:10px; padding:12px 14px; margin-top:14px; font-size:14px; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">Startway · внутреннее обучение</div>
+
+  <section id="login">
+    <h1>Аттестация по атласу поступления</h1>
+    <p class="muted">39 вопросов с выбором ответа, 40 минут. Ответ можно менять до отправки. Атлас и телефон уберите.</p>
+    <div class="card">
+      <label for="name">Имя и фамилия</label>
+      <input id="name" autocomplete="name" placeholder="Как в списке у руководителя">
+      <label for="code">Личный код</label>
+      <input id="code" autocomplete="off" placeholder="Например, AB12CD" style="text-transform:uppercase">
+      <div style="margin-top:18px"><button class="primary" id="startBtn">Начать</button></div>
+      <div class="err" id="loginErr"></div>
+      <div class="note">Квиз сдаётся один раз. Таймер идёт с момента первого входа, даже если закрыть вкладку.</div>
+    </div>
+  </section>
+
+  <section id="quiz" hidden>
+    <div class="bar">
+      <span id="who"></span>
+      <span>Осталось <span class="timer" id="timer">40:00</span></span>
+    </div>
+    <div class="progress"><div id="prog"></div></div>
+    <div class="card">
+      <div class="bar"><span class="kicker" id="block"></span><span class="chip" id="pts"></span></div>
+      <div class="q" id="qtext"></div>
+      <div id="opts"></div>
+      <div class="nav">
+        <button class="ghost" id="prev">Назад</button>
+        <button class="primary" id="next">Дальше</button>
+      </div>
+    </div>
+    <div class="dots" id="dots" aria-label="Переход к вопросу"></div>
+    <div class="err" id="quizErr"></div>
+  </section>
+
+  <section id="done" hidden>
+    <h1>Ответы отправлены</h1>
+    <p class="muted">Спасибо. Результат вам сообщит руководитель после проверки.</p>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+  let quiz = [], order = [], answers = {}, cur = 0, code = "", deadline = 0, tick = null, sending = false;
+
+  async function api(body) {
+    const r = await fetch(window.QUIZ_ENDPOINT, { method: "POST", body: JSON.stringify(body) });
+    return r.json();
+  }
+  function shuffle(a, seed) { // deterministic per code, so a reload keeps the same order
+    let s = 0; for (const ch of seed) s = (s * 31 + ch.charCodeAt(0)) >>> 0;
+    const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+
+  $("startBtn").onclick = async () => {
+    const name = $("name").value.trim(); code = $("code").value.trim().toUpperCase();
+    $("loginErr").textContent = "";
+    if (!name || !code) { $("loginErr").textContent = "Введите имя и код."; return; }
+    if (!window.QUIZ_ENDPOINT) { $("loginErr").textContent = "Квиз ещё не подключён к таблице. Напишите руководителю."; return; }
+    $("startBtn").disabled = true;
+    try {
+      const res = await api({ action: "start", name, code });
+      if (!res.ok) { $("loginErr").textContent = res.error; return; }
+      quiz = await (await fetch("quiz.json", { cache: "no-store" })).json();
+      const blocks = [...new Set(quiz.map((q) => q.block))];
+      order = blocks.flatMap((b) => shuffle(quiz.filter((q) => q.block === b), code + b));
+      for (const q of order) q.optOrder = shuffle(Object.keys(q.options), code + q.id);
+      answers = store.get("ans_" + code) || {};
+      deadline = Date.now() + res.secondsLeft * 1000;
+      $("who").textContent = res.name;
+      $("login").hidden = true; $("quiz").hidden = false;
+      render(); startTimer();
+    } catch (e) {
+      $("loginErr").textContent = "Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.";
+    } finally { $("startBtn").disabled = false; }
+  };
+
+  function render() {
+    const q = order[cur];
+    $("block").textContent = `${q.block} · вопрос ${cur + 1} из ${order.length}`;
+    $("pts").textContent = q.points === 1 ? "1 балл" : q.points + " балла";
+    $("qtext").textContent = q.q;
+    $("opts").innerHTML = "";
+    q.optOrder.forEach((k) => {
+      const b = document.createElement("button");
+      b.className = "opt" + (answers[q.id] === k ? " sel" : "");
+      b.textContent = q.options[k];
+      b.onclick = () => { answers[q.id] = k; store.set("ans_" + code, answers); render(); };
+      $("opts").appendChild(b);
+    });
+    $("prev").disabled = cur === 0;
+    $("next").textContent = cur === order.length - 1 ? "Отправить ответы" : "Дальше";
+    $("prog").style.width = (Object.keys(answers).length / order.length * 100) + "%";
+    $("dots").innerHTML = "";
+    order.forEach((qq, i) => {
+      const d = document.createElement("button");
+      d.className = "dot" + (answers[qq.id] ? " done" : "") + (i === cur ? " cur" : "");
+      d.textContent = i + 1; d.title = "Вопрос " + (i + 1);
+      d.onclick = () => { cur = i; render(); };
+      $("dots").appendChild(d);
+    });
+  }
+  $("prev").onclick = () => { if (cur > 0) { cur--; render(); } };
+  $("next").onclick = () => {
+    if (cur < order.length - 1) { cur++; render(); return; }
+    const left = order.length - Object.keys(answers).length;
+    const msg = left ? `Без ответа осталось ${left}. Отправить всё равно?` : "Отправить ответы? Изменить их потом будет нельзя.";
+    $("quizErr").innerHTML = "";
+    const p = document.createElement("div"); p.className = "note"; p.textContent = msg + " ";
+    const yes = document.createElement("button"); yes.className = "primary"; yes.textContent = "Да, отправить";
+    yes.onclick = () => submit("сдал сам");
+    p.appendChild(yes); $("quizErr").appendChild(p);
+  };
+
+  function startTimer() {
+    clearInterval(tick);
+    tick = setInterval(() => {
+      const s = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      $("timer").textContent = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+      $("timer").classList.toggle("low", s < 300);
+      if (s === 0) { clearInterval(tick); submit("время вышло"); }
+    }, 1000);
+  }
+
+  async function submit(reason) {
+    if (sending) return; sending = true;
+    $("quizErr").textContent = "Отправляем…";
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await api({ action: "submit", code, name: $("who").textContent, answers, reason });
+        if (res.ok) { clearInterval(tick); $("quiz").hidden = true; $("done").hidden = false; return; }
+        $("quizErr").textContent = res.error; sending = false; return;
+      } catch (e) { await new Promise((r) => setTimeout(r, 1500)); }
+    }
+    $("quizErr").textContent = "Не удалось отправить. Ответы сохранены в браузере, нажмите «Отправить ответы» ещё раз.";
+    sending = false;
+  }
+})();
+</script>
+</body>
+</html>
