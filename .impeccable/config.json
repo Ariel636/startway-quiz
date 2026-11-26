@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-26T12:22:53.433Z",
+        "reason": "Claude decided: background F5F3EE deliberately matches the attestation PDF palette (same exam series), not a default pick"
+      }
+    ]
+  }
+}
